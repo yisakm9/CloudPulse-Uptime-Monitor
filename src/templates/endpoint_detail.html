@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}CloudPulse — {{ endpoint.name }}{% endblock %}
+
+{% block content %}
+<!-- Back Navigation -->
+<div class="back-nav">
+    <a href="/" class="btn btn-back">← Back to Dashboard</a>
+</div>
+
+<!-- Endpoint Header -->
+<section class="detail-header">
+    <div class="detail-status-dot {{ 'up' if latest and latest.is_healthy else ('down' if latest else 'unknown') }}"></div>
+    <div class="detail-info">
+        <h1 class="detail-name">{{ endpoint.name }}</h1>
+        <p class="detail-url">{{ endpoint.url }}</p>
+    </div>
+    <div class="detail-badge {{ 'badge-up' if latest and latest.is_healthy else ('badge-down' if latest else 'badge-unknown') }}">
+        {% if latest and latest.is_healthy %}
+            Operational
+        {% elif latest %}
+            Down
+        {% else %}
+            Pending
+        {% endif %}
+    </div>
+</section>
+
+<!-- Uptime Summary Cards -->
+<section class="detail-stats">
+    <div class="detail-stat-card">
+        <div class="detail-stat-value {{ 'up' if uptime_24h >= 99 else ('warning' if uptime_24h >= 95 else 'down') }}">{{ uptime_24h }}%</div>
+        <div class="detail-stat-label">Uptime 24h</div>
+    </div>
+    <div class="detail-stat-card">
+        <div class="detail-stat-value">{{ uptime_7d }}%</div>
+        <div class="detail-stat-label">Uptime 7 Days</div>
+    </div>
+    <div class="detail-stat-card">
+        <div class="detail-stat-value">{{ uptime_30d }}%</div>
+        <div class="detail-stat-label">Uptime 30 Days</div>
+    </div>
+    <div class="detail-stat-card">
+        <div class="detail-stat-value">{{ avg_response }} ms</div>
+        <div class="detail-stat-label">Avg Response (24h)</div>
+    </div>
+</section>
+
+<!-- Response Time Chart -->
+<section class="chart-section">
+    <h2 class="section-title">Response Time History</h2>
+    <div class="chart-container">
+        <canvas id="responseChart"></canvas>
+    </div>
+</section>
+
+<!-- Recent Checks Table -->
+<section class="checks-section">
+    <h2 class="section-title">Recent Health Checks</h2>
+    <div class="table-wrapper">
+        <table class="checks-table">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Status</th>
+                    <th>Code</th>
+                    <th>Response Time</th>
+                    <th>Error</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for check in checks %}
+                <tr class="{{ 'row-healthy' if check.is_healthy else 'row-unhealthy' }}">
+                    <td>{{ check.checked_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    <td>
+                        <span class="status-pill {{ 'pill-up' if check.is_healthy else 'pill-down' }}">
+                            {{ '🟢 UP' if check.is_healthy else '🔴 DOWN' }}
+                        </span>
+                    </td>
+                    <td>{{ check.status_code or '—' }}</td>
+                    <td>{{ check.response_time_ms or '—' }} {{ 'ms' if check.response_time_ms else '' }}</td>
+                    <td class="error-cell">{{ check.error_message or '—' }}</td>
+                </tr>
+                {% endfor %}
+                {% if not checks %}
+                <tr>
+                    <td colspan="5" class="empty-row">No health checks recorded yet.</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const ctx = document.getElementById('responseChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: {{ chart_labels | tojson }},
+            datasets: [{
+                label: 'Response Time (ms)',
+                data: {{ chart_data | tojson }},
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.3,
+                pointRadius: 2,
+                pointHoverRadius: 5,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: { color: '#94a3b8', font: { family: 'Inter' } }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#64748b', maxTicksLimit: 12, font: { family: 'Inter' } },
+                    grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                },
+                y: {
+                    ticks: { color: '#64748b', font: { family: 'Inter' } },
+                    grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                    beginAtZero: true,
+                    title: { display: true, text: 'ms', color: '#94a3b8' }
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

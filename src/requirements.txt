@@ -1,0 +1,29 @@
+# ──────────────────────────────────────────────────────────────
+# CloudPulse — Python Dependencies
+# ──────────────────────────────────────────────────────────────
+
+# Web Framework
+fastapi==0.115.0
+uvicorn[standard]==0.30.0
+jinja2==3.1.4
+
+# Database
+sqlalchemy==2.0.35
+psycopg2-binary==2.9.9
+alembic==1.13.2
+
+# HTTP Client (for health checks)
+httpx==0.27.2
+
+# Utilities
+python-dotenv==1.0.1
+pydantic==2.9.0
+pydantic-settings==2.5.0
+
+# Monitoring
+google-cloud-monitoring==2.21.0
+
+# Testing
+pytest==8.3.3
+pytest-asyncio==0.24.0
+pytest-httpx==0.32.0

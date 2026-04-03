@@ -8,7 +8,7 @@ variable "name_prefix" {
   type        = string
 }
 
-variable "db_secret_id" {
-  description = "The secret ID for database password (for scoped access)"
+variable "network_name" {
+  description = "Name of the VPC network"
   type        = string
 }

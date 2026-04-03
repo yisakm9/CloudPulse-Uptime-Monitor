@@ -4,17 +4,17 @@ variable "project_id" {
 }
 
 variable "region" {
-  description = "The GCP region"
+  description = "The GCP region for the serverless NEG"
   type        = string
 }
 
 variable "name_prefix" {
-  description = "Naming prefix for resources (e.g., cloudpulse-dev)"
+  description = "Naming prefix for resources"
   type        = string
 }
 
-variable "subnet_cidr" {
-  description = "CIDR range for the primary subnet"
+variable "cloud_run_name" {
+  description = "The name of the Cloud Run web service to route to"
   type        = string
 }
 

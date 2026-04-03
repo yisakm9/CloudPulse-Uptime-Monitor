@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}CloudPulse — Dashboard{% endblock %}
+
+{% block content %}
+<!-- Summary Cards -->
+<section class="summary-section">
+    <div class="summary-grid">
+        <div class="summary-card">
+            <div class="summary-value">{{ total_endpoints }}</div>
+            <div class="summary-label">Total Monitors</div>
+        </div>
+        <div class="summary-card card-up">
+            <div class="summary-value">{{ total_up }}</div>
+            <div class="summary-label">Operational</div>
+        </div>
+        <div class="summary-card card-down">
+            <div class="summary-value">{{ total_down }}</div>
+            <div class="summary-label">Down</div>
+        </div>
+        <div class="summary-card card-unknown">
+            <div class="summary-value">{{ total_unknown }}</div>
+            <div class="summary-label">Pending</div>
+        </div>
+    </div>
+</section>
+
+<!-- Add Endpoint Form -->
+<section class="add-section">
+    <h2 class="section-title">Add New Monitor</h2>
+    <form id="addEndpointForm" class="add-form">
+        <div class="form-row">
+            <input type="text" id="endpointName" placeholder="Name (e.g., My API)" required class="form-input">
+            <input type="url" id="endpointUrl" placeholder="https://example.com" required class="form-input form-input-url">
+            <select id="endpointInterval" class="form-input form-input-select">
+                <option value="60">Every 1 min</option>
+                <option value="300" selected>Every 5 min</option>
+                <option value="600">Every 10 min</option>
+                <option value="1800">Every 30 min</option>
+            </select>
+            <button type="submit" class="btn btn-primary">+ Add Monitor</button>
+        </div>
+    </form>
+</section>
+
+<!-- Endpoints List -->
+<section class="endpoints-section">
+    <h2 class="section-title">Monitored Endpoints</h2>
+
+    {% if endpoints %}
+    <div class="endpoints-grid">
+        {% for ep in endpoints %}
+        <div class="endpoint-card {{ 'status-up' if ep.current_status == 'up' else ('status-down' if ep.current_status == 'down' else 'status-unknown') }}">
+            <div class="endpoint-header">
+                <div class="endpoint-status-dot {{ ep.current_status }}"></div>
+                <div class="endpoint-info">
+                    <h3 class="endpoint-name">
+                        <a href="/endpoints/{{ ep.id }}/detail">{{ ep.name }}</a>
+                    </h3>
+                    <p class="endpoint-url">{{ ep.url }}</p>
+                </div>
+                <button class="btn btn-delete" onclick="deleteEndpoint('{{ ep.id }}', '{{ ep.name }}')" title="Delete">✕</button>
+            </div>
+
+            <div class="endpoint-stats">
+                <div class="stat">
+                    <span class="stat-label">Status</span>
+                    <span class="stat-value {{ ep.current_status }}">
+                        {% if ep.current_status == 'up' %}
+                            🟢 UP
+                        {% elif ep.current_status == 'down' %}
+                            🔴 DOWN
+                        {% else %}
+                            ⚪ PENDING
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Response</span>
+                    <span class="stat-value">
+                        {{ ep.response_time_ms if ep.response_time_ms else '—' }}
+                        {{ 'ms' if ep.response_time_ms else '' }}
+                    </span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Uptime 24h</span>
+                    <span class="stat-value {{ 'up' if ep.uptime_24h >= 99 else ('warning' if ep.uptime_24h >= 95 else 'down') }}">
+                        {{ ep.uptime_24h }}%
+                    </span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Uptime 7d</span>
+                    <span class="stat-value">{{ ep.uptime_7d }}%</span>
+                </div>
+            </div>
+
+            {% if ep.error_message %}
+            <div class="endpoint-error">
+                ⚠ {{ ep.error_message }}
+            </div>
+            {% endif %}
+
+            {% if ep.last_checked %}
+            <div class="endpoint-footer">
+                Last checked: {{ ep.last_checked.strftime('%Y-%m-%d %H:%M:%S UTC') }}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p class="empty-icon">📡</p>
+        <p class="empty-text">No endpoints being monitored yet.</p>
+        <p class="empty-sub">Add your first monitor using the form above.</p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // ─── Add Endpoint ─────────────────────────────────────
+    document.getElementById('addEndpointForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('endpointName').value;
+        const url = document.getElementById('endpointUrl').value;
+        const interval = parseInt(document.getElementById('endpointInterval').value);
+
+        try {
+            const response = await fetch('/api/endpoints/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, url, check_interval: interval }),
+            });
+
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                const error = await response.json();
+                alert('Error: ' + JSON.stringify(error.detail));
+            }
+        } catch (err) {
+            alert('Failed to add endpoint: ' + err.message);
+        }
+    });
+
+    // ─── Delete Endpoint ──────────────────────────────────
+    async function deleteEndpoint(id, name) {
+        if (!confirm(`Delete monitor "${name}"? This will remove all history.`)) return;
+
+        try {
+            const response = await fetch(`/api/endpoints/${id}`, { method: 'DELETE' });
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                alert('Failed to delete endpoint.');
+            }
+        } catch (err) {
+            alert('Error: ' + err.message);
+        }
+    }
+
+    // ─── Auto-refresh every 60 seconds ────────────────────
+    setTimeout(() => window.location.reload(), 60000);
+</script>
+{% endblock %}

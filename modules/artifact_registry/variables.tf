@@ -9,17 +9,12 @@ variable "region" {
 }
 
 variable "name_prefix" {
-  description = "Naming prefix for resources (e.g., cloudpulse-dev)"
-  type        = string
-}
-
-variable "subnet_cidr" {
-  description = "CIDR range for the primary subnet"
+  description = "Naming prefix for resources"
   type        = string
 }
 
 variable "labels" {
-  description = "Labels to apply to resources"
+  description = "Labels to apply to the repository"
   type        = map(string)
   default     = {}
 }

@@ -1,66 +1,189 @@
-name: "Deploy Dev Infrastructure"
+# ──────────────────────────────────────────────────────────────
+# CloudPulse — CI/CD Deployment Pipeline
+# ──────────────────────────────────────────────────────────────
+# Trigger: Push to main branch
+# Pipeline:
+#   1. Lint & Security Scan (tflint, checkov, pytest)
+#   2. Build & Push Docker image to Artifact Registry
+#   3. Deploy infrastructure with Terraform
+#   4. Deploy Cloud Run services with new image
+# ──────────────────────────────────────────────────────────────
 
-# 1. Controls when the action will run.
+name: Deploy CloudPulse - Dev
+
 on:
-  # Triggers the workflow on push events but only for the "main" branch
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
-      - "environments/dev/**"
-      - "modules/**"
-      - "src/**"
+      - 'src/**'
+      - 'modules/**'
+      - 'environments/**'
+      - '.github/workflows/deploy-dev.yml'
+  pull_request:
+    branches: [main]
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
+env:
+  PROJECT_ID: cloudpulse-uptime-dev
+  REGION: us-central1
+  REPO_NAME: cloudpulse-dev-repo
+  IMAGE_NAME: cloudpulse
+  WIF_PROVIDER: 'projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+  WIF_SERVICE_ACCOUNT: 'cloudpulse-dev-github-sa@cloudpulse-uptime-dev.iam.gserviceaccount.com'
 
-# 2. A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  deploy-dev:
-    name: "Deploy to Dev Environment"
+  # ────────────────────────────────────────────────────────────
+  # Job 1: Validate — Lint, Security Scan, Test
+  # ────────────────────────────────────────────────────────────
+  validate:
+    name: Validate & Scan
     runs-on: ubuntu-latest
-    
-    # These permissions are needed for OIDC, but it's good practice to have them
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.5.7"
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+        working-directory: environments/dev
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+
+      - name: Run TFLint
+        run: tflint --init && tflint --recursive
+        working-directory: environments/dev
+
+      - name: Run Checkov Security Scan
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: environments/dev
+          framework: terraform
+          soft_fail: true
+          output_format: cli
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python Dependencies
+        run: pip install -r src/requirements.txt
+
+      - name: Run Python Tests
+        run: python -m pytest test/ -v --tb=short
+        continue-on-error: true
+
+  # ────────────────────────────────────────────────────────────
+  # Job 2: Build — Docker Build & Push to Artifact Registry
+  # ────────────────────────────────────────────────────────────
+  build:
+    name: Build & Push Docker Image
+    needs: validate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
     permissions:
       contents: read
       id-token: write
 
-    # The directory where the terraform commands will be executed
-    defaults:
-      run:
-        working-directory: ./environments/dev
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
 
     steps:
-      # 3. Checks out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - name: "Checkout"
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      # 4. Configures AWS credentials from the GitHub secrets
-      - name: "Configure AWS Credentials"
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1 # Must match the region in your backend.tf
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
 
-      # 5. Installs the specific version of Terraform CLI
-      - name: "Setup Terraform"
+      - name: Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Generate image tag
+        id: meta
+        run: |
+          TAG="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Image tag: $TAG"
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t ${{ steps.meta.outputs.tag }} \
+            -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:latest \
+            ./src
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ steps.meta.outputs.tag }}
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:latest
+
+  # ────────────────────────────────────────────────────────────
+  # Job 3: Deploy — Terraform Apply & Cloud Run Update
+  # ────────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy Infrastructure & Services
+    needs: build
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
+
+      - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.5.7"
 
-      # 6. Initializes a new or existing Terraform working directory by creating initial files, 
-      #    loading any remote state, and downloading modules.
-      - name: "Terraform Init"
-        id: init
+      - name: Terraform Init
         run: terraform init
+        working-directory: environments/dev
 
-      # 7. Generates an execution plan for Terraform, showing what actions will be taken.
-      #    A plan file is saved for the 'apply' step to ensure only the planned actions are executed.
-      - name: "Terraform Plan"
-        id: plan
-        run: terraform plan -out=tfplan
+      - name: Terraform Plan
+        run: |
+          terraform plan \
+            -var="web_image=${{ needs.build.outputs.image_tag }}" \
+            -out=tfplan
+        working-directory: environments/dev
 
-      # 8. Applies the changes required to reach the desired state of the configuration.
-      #    The -auto-approve flag is used for non-interactive execution in CI/CD.
-      - name: "Terraform Apply"
-        id: apply
+      - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
+        working-directory: environments/dev
+
+      - name: Display Outputs
+        run: |
+          echo "═══════════════════════════════════════════════════"
+          echo "  CloudPulse Deployment Complete!"
+          echo "═══════════════════════════════════════════════════"
+          echo ""
+          echo "  Dashboard URL:"
+          terraform output -raw dashboard_url
+          echo ""
+          echo ""
+          echo "  Load Balancer IP:"
+          terraform output -raw load_balancer_ip
+          echo ""
+          echo "═══════════════════════════════════════════════════"
+        working-directory: environments/dev

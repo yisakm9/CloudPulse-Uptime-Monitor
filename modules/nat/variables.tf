@@ -3,12 +3,17 @@ variable "project_id" {
   type        = string
 }
 
+variable "region" {
+  description = "The GCP region"
+  type        = string
+}
+
 variable "name_prefix" {
   description = "Naming prefix for resources"
   type        = string
 }
 
-variable "db_secret_id" {
-  description = "The secret ID for database password (for scoped access)"
+variable "network_name" {
+  description = "Name of the VPC network to attach the router to"
   type        = string
 }
