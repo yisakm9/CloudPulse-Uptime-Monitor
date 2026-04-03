@@ -80,49 +80,4 @@ resource "google_secret_manager_secret_iam_member" "worker_secret_access" {
   member    = "serviceAccount:${google_service_account.worker.email}"
 }
 
-# ─── GitHub Actions Service Account ──────────────────────────
-# Used via Workload Identity Federation for CI/CD deployment.
-# Permissions: deploy Cloud Run, push to Artifact Registry,
-# impersonate service accounts, read Terraform state.
 
-resource "google_service_account" "github" {
-  account_id   = "${var.name_prefix}-github-sa"
-  project      = var.project_id
-  display_name = "CloudPulse GitHub Actions Service Account"
-  description  = "Service account for GitHub Actions CI/CD pipeline"
-}
-
-# Cloud Run Admin — deploy new revisions
-resource "google_project_iam_member" "github_run_admin" {
-  project = var.project_id
-  role    = "roles/run.admin"
-  member  = "serviceAccount:${google_service_account.github.email}"
-}
-
-# Artifact Registry Writer — push Docker images
-resource "google_project_iam_member" "github_ar_writer" {
-  project = var.project_id
-  role    = "roles/artifactregistry.writer"
-  member  = "serviceAccount:${google_service_account.github.email}"
-}
-
-# Service Account User — attach SAs to Cloud Run services
-resource "google_project_iam_member" "github_sa_user" {
-  project = var.project_id
-  role    = "roles/iam.serviceAccountUser"
-  member  = "serviceAccount:${google_service_account.github.email}"
-}
-
-# Storage Admin — manage Terraform state in GCS
-resource "google_project_iam_member" "github_storage_admin" {
-  project = var.project_id
-  role    = "roles/storage.admin"
-  member  = "serviceAccount:${google_service_account.github.email}"
-}
-
-# Compute Network Viewer — read VPC connector info during deploy
-resource "google_project_iam_member" "github_compute_viewer" {
-  project = var.project_id
-  role    = "roles/compute.viewer"
-  member  = "serviceAccount:${google_service_account.github.email}"
-}
