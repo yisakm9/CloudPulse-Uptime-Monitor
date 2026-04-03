@@ -14,10 +14,11 @@
 # ─── Web Service (Dashboard + API) ───────────────────────────
 
 resource "google_cloud_run_v2_service" "web" {
-  name     = "${var.name_prefix}-web"
-  project  = var.project_id
-  location = var.region
-  ingress  = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
+  name                = "${var.name_prefix}-web"
+  project             = var.project_id
+  location            = var.region
+  ingress             = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
+  deletion_protection = false
 
   template {
     service_account = var.web_service_account
@@ -115,10 +116,11 @@ resource "google_cloud_run_v2_service" "web" {
 # ─── Worker Service (Health Checker) ─────────────────────────
 
 resource "google_cloud_run_v2_service" "worker" {
-  name     = "${var.name_prefix}-worker"
-  project  = var.project_id
-  location = var.region
-  ingress  = "INGRESS_TRAFFIC_INTERNAL_ONLY"
+  name                = "${var.name_prefix}-worker"
+  project             = var.project_id
+  location            = var.region
+  ingress             = "INGRESS_TRAFFIC_INTERNAL_ONLY"
+  deletion_protection = false
 
   template {
     service_account = var.worker_service_account
