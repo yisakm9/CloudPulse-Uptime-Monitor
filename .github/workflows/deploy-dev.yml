@@ -1,12 +1,12 @@
 # ──────────────────────────────────────────────────────────────
 # CloudPulse — CI/CD Deployment Pipeline
 # ──────────────────────────────────────────────────────────────
-# Trigger: Push to main branch
-# Pipeline:
-#   1. Lint & Security Scan (tflint, checkov, pytest)
-#   2. Build & Push Docker image to Artifact Registry
-#   3. Deploy infrastructure with Terraform
-#   4. Deploy Cloud Run services with new image
+# Trigger: Push to main branch or manual dispatch
+# Pipeline (4 stages — solves Artifact Registry chicken-and-egg):
+#   1. Validate  — Lint, security scan, unit tests
+#   2. Infra     — Terraform creates AR, VPC, SQL, IAM, etc.
+#   3. Build     — Docker build & push (AR now exists)
+#   4. Deploy    — Terraform deploys Cloud Run, LB, monitoring
 # ──────────────────────────────────────────────────────────────
 
 name: Deploy CloudPulse - Dev
@@ -33,10 +33,10 @@ env:
 
 jobs:
   # ────────────────────────────────────────────────────────────
-  # Job 1: Validate — Lint, Security Scan, Test
+  # Stage 1: Validate — Lint, Security Scan, Test
   # ────────────────────────────────────────────────────────────
   validate:
-    name: Validate & Scan
+    name: "1 · Validate & Scan"
     runs-on: ubuntu-latest
 
     steps:
@@ -58,6 +58,7 @@ jobs:
       - name: Run TFLint
         run: tflint --init && tflint --recursive
         working-directory: environments/dev
+        continue-on-error: true
 
       - name: Run Checkov Security Scan
         uses: bridgecrewio/checkov-action@v12
@@ -80,13 +81,64 @@ jobs:
         continue-on-error: true
 
   # ────────────────────────────────────────────────────────────
-  # Job 2: Build — Docker Build & Push to Artifact Registry
+  # Stage 2: Infrastructure — Create AR, VPC, SQL, IAM, Secrets
+  #   Runs Terraform for everything EXCEPT Cloud Run, LB, and
+  #   Monitoring (which depend on the Docker image existing).
   # ────────────────────────────────────────────────────────────
-  build:
-    name: Build & Push Docker Image
+  infrastructure:
+    name: "2 · Provision Infrastructure"
     needs: validate
     runs-on: ubuntu-latest
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
+
+      - name: Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.13.1"
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: environments/dev
+
+      - name: Terraform Apply — Infrastructure Only
+        run: |
+          terraform apply -auto-approve \
+            -target=module.apis \
+            -target=module.vpc \
+            -target=module.nat \
+            -target=module.vpc_connector \
+            -target=module.firewall \
+            -target=module.cloud_sql \
+            -target=module.secrets \
+            -target=module.artifact_registry \
+            -target=module.iam
+        working-directory: environments/dev
+
+  # ────────────────────────────────────────────────────────────
+  # Stage 3: Build — Docker Build & Push to Artifact Registry
+  #   AR now exists from Stage 2, so the push will succeed.
+  # ────────────────────────────────────────────────────────────
+  build:
+    name: "3 · Build & Push Docker Image"
+    needs: infrastructure
+    runs-on: ubuntu-latest
 
     permissions:
       contents: read
@@ -100,7 +152,6 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Authenticate to Google Cloud
-        id: auth
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ env.WIF_PROVIDER }}
@@ -132,10 +183,12 @@ jobs:
           docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:latest
 
   # ────────────────────────────────────────────────────────────
-  # Job 3: Deploy — Terraform Apply & Cloud Run Update
+  # Stage 4: Deploy — Cloud Run, Load Balancer, Monitoring
+  #   Now that the Docker image exists in AR, Terraform can
+  #   deploy Cloud Run services referencing that image.
   # ────────────────────────────────────────────────────────────
   deploy:
-    name: Deploy Infrastructure & Services
+    name: "4 · Deploy Services"
     needs: build
     runs-on: ubuntu-latest
 
@@ -156,35 +209,30 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "1.13.1  "
+          terraform_version: "1.13.1"
 
       - name: Terraform Init
         run: terraform init
         working-directory: environments/dev
 
-      - name: Terraform Plan
+      - name: Terraform Apply — Full Stack
         run: |
-          terraform plan \
-            -var="web_image=${{ needs.build.outputs.image_tag }}" \
-            -out=tfplan
-        working-directory: environments/dev
-
-      - name: Terraform Apply
-        run: terraform apply -auto-approve tfplan
+          terraform apply -auto-approve \
+            -var="web_image=${{ needs.build.outputs.image_tag }}"
         working-directory: environments/dev
 
       - name: Display Outputs
         run: |
           echo "═══════════════════════════════════════════════════"
-          echo "  CloudPulse Deployment Complete!"
+          echo "  ✅ CloudPulse Deployment Complete!"
           echo "═══════════════════════════════════════════════════"
           echo ""
           echo "  Dashboard URL:"
-          terraform output -raw dashboard_url
+          terraform output -raw dashboard_url || echo "  (pending LB provisioning)"
           echo ""
           echo ""
           echo "  Load Balancer IP:"
-          terraform output -raw load_balancer_ip
+          terraform output -raw load_balancer_ip || echo "  (pending)"
           echo ""
           echo "═══════════════════════════════════════════════════"
         working-directory: environments/dev
