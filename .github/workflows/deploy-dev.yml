@@ -27,7 +27,7 @@ env:
   REGION: us-central1
   REPO_NAME: cloudpulse-dev-repo
   IMAGE_NAME: cloudpulse
-  WIF_PROVIDER: 'projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+  WIF_PROVIDER: 'projects/658141614041/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
   WIF_SERVICE_ACCOUNT: 'cloudpulse-dev-github-sa@cloudpulse-uptime-dev.iam.gserviceaccount.com'
 
 jobs:
@@ -45,7 +45,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "1.5.7"
+          terraform_version: "1.13.1"
 
       - name: Terraform Format Check
         run: terraform fmt -check -recursive
@@ -155,7 +155,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "1.5.7"
+          terraform_version: "1.13.1  "
 
       - name: Terraform Init
         run: terraform init
