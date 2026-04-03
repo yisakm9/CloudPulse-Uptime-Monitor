@@ -15,7 +15,4 @@ resource "google_vpc_access_connector" "main" {
 
   min_instances = 2
   max_instances = 3
-
-  min_throughput = 200
-  max_throughput = 300
 }
