@@ -18,7 +18,7 @@ worker_min_instances = 1
 worker_max_instances = 3
 
 # ─── Monitoring ───────────────────────────────────────────────
-alert_email = "your-email@example.com"
+alert_email = "yisakmesifin@gmail.com"
 
 # ─── Labels ───────────────────────────────────────────────────
 labels = {
