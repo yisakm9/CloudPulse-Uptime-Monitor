@@ -60,7 +60,7 @@ variable "db_user" {
 variable "web_image" {
   description = "Docker image URI for the web service (set by CI/CD)"
   type        = string
-  default     = "us-central1-docker.pkg.dev/PROJECT_ID/cloudpulse-repo-dev/cloudpulse:latest"
+  default     = "us-central1-docker.pkg.dev/cloudpulse-uptime-dev/cloudpulse-dev-repo/cloudpulse:latest"
 }
 
 variable "web_cpu" {
