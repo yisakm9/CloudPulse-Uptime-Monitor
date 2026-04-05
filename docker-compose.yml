@@ -1,0 +1,61 @@
+version: "3.8"
+
+services:
+  # ─── PostgreSQL Database ─────────────────────────────────────
+  db:
+    image: postgres:15-alpine
+    container_name: cloudpulse_db
+    environment:
+      POSTGRES_USER: cloudpulse_user
+      POSTGRES_PASSWORD: localpassword
+      POSTGRES_DB: cloudpulse
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cloudpulse_user -d cloudpulse"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─── FastAPI Web Service (Dashboard + API) ───────────────────
+  web:
+    build:
+      context: ./src
+    container_name: cloudpulse_web
+    command: uvicorn main:app --host 0.0.0.0 --port 8080 --reload
+    volumes:
+      - ./src:/app
+    ports:
+      - "8080:8080"
+    environment:
+      APP_ENV: local
+      DB_HOST: db
+      DB_NAME: cloudpulse
+      DB_USER: cloudpulse_user
+      DB_PASSWORD: localpassword
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ─── Background Worker Service (Health Checker) ──────────────
+  worker:
+    build:
+      context: ./src
+    container_name: cloudpulse_worker
+    command: python worker.py
+    volumes:
+      - ./src:/app
+    environment:
+      APP_ENV: local
+      DB_HOST: db
+      DB_NAME: cloudpulse
+      DB_USER: cloudpulse_user
+      DB_PASSWORD: localpassword
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

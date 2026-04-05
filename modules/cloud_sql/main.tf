@@ -65,16 +65,18 @@ resource "google_sql_database_instance" "main" {
 # ─── Database ─────────────────────────────────────────────────
 
 resource "google_sql_database" "main" {
-  name     = var.db_name
-  project  = var.project_id
-  instance = google_sql_database_instance.main.name
+  name            = var.db_name
+  project         = var.project_id
+  instance        = google_sql_database_instance.main.name
+  deletion_policy = "ABANDON"
 }
 
 # ─── Database User ────────────────────────────────────────────
 
 resource "google_sql_user" "main" {
-  name     = var.db_user
-  project  = var.project_id
-  instance = google_sql_database_instance.main.name
-  password = random_password.db_password.result
+  name            = var.db_user
+  project         = var.project_id
+  instance        = google_sql_database_instance.main.name
+  password        = random_password.db_password.result
+  deletion_policy = "ABANDON"
 }

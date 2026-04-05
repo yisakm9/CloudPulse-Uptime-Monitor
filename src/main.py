@@ -55,8 +55,9 @@ app = FastAPI(
 )
 
 # ─── Static Files ────────────────────────────────────────────
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
+import os
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 
 # ─── Register Route Modules ─────────────────────────────────
 
