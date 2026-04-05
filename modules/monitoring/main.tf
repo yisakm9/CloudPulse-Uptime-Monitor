@@ -179,3 +179,38 @@ resource "google_monitoring_alert_policy" "uptime_check_failure" {
     auto_close = "1800s"
   }
 }
+
+# ─── Alert: Monitored Endpoint Down ──────────────────────────
+# Fires when the CloudPulse worker detects that a monitored
+# endpoint has transitioned from UP → DOWN. This sends a
+# custom metric which triggers this alert → email notification.
+
+resource "google_monitoring_alert_policy" "endpoint_down" {
+  display_name = "${var.name_prefix}-endpoint-down"
+  project      = var.project_id
+  combiner     = "OR"
+
+  notification_channels = [
+    google_monitoring_notification_channel.email.name
+  ]
+
+  conditions {
+    display_name = "Monitored Endpoint Down"
+
+    condition_threshold {
+      filter          = "resource.type = \"global\" AND metric.type = \"custom.googleapis.com/cloudpulse/endpoint_down\""
+      comparison      = "COMPARISON_GT"
+      threshold_value = 0
+      duration        = "0s"
+
+      aggregations {
+        alignment_period   = "60s"
+        per_series_aligner = "ALIGN_SUM"
+      }
+    }
+  }
+
+  alert_strategy {
+    auto_close = "1800s"
+  }
+}

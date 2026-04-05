@@ -31,6 +31,7 @@ from config import settings
 from database import init_db, SessionLocal
 from models import Endpoint, HealthCheck
 from services.checker import check_endpoint
+from services.alerts import send_down_alert, send_recovery_alert
 
 # ─── Logging ─────────────────────────────────────────────────
 
@@ -125,12 +126,21 @@ async def run_checks():
                     f"🔴 ENDPOINT DOWN: {endpoint.name} ({endpoint.url}) "
                     f"→ {result.error_message}"
                 )
+                send_down_alert(
+                    endpoint_name=endpoint.name,
+                    endpoint_url=endpoint.url,
+                    error_message=result.error_message or "Unknown error",
+                )
 
             # Detect DOWN→UP transition (recovery)
             if previous_check and not previous_check.is_healthy and result.is_healthy:
                 logger.info(
                     f"🟢 ENDPOINT RECOVERED: {endpoint.name} ({endpoint.url}) "
                     f"→ {result.status_code} ({result.response_time_ms}ms)"
+                )
+                send_recovery_alert(
+                    endpoint_name=endpoint.name,
+                    endpoint_url=endpoint.url,
                 )
 
         db.commit()

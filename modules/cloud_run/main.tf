@@ -182,6 +182,11 @@ resource "google_cloud_run_v2_service" "worker" {
         value = "300"
       }
 
+      env {
+        name  = "PROJECT_ID"
+        value = var.project_id
+      }
+
       # ─── Secret from Secret Manager ─────────────────────────
       env {
         name = "DB_PASSWORD"
