@@ -50,9 +50,25 @@ jobs:
         run: terraform init
         working-directory: environments/dev
 
-      - name: Terraform Destroy
+      - name: Apply Config Changes (deletion policies)
         run: |
-          echo "⚠️  DESTROYING ALL CLOUDPULSE RESOURCES..."
+          echo "📋 Applying config changes before destroy..."
+          terraform apply -auto-approve -refresh=false
+        working-directory: environments/dev
+        continue-on-error: true
+
+      - name: Destroy Cloud Run First (release DB connections)
+        run: |
+          echo "🔥 Destroying Cloud Run services first..."
+          terraform destroy -auto-approve \
+            -target=module.cloud_run \
+            -target=module.load_balancer \
+            -target=module.monitoring || true
+        working-directory: environments/dev
+
+      - name: Destroy Remaining Infrastructure
+        run: |
+          echo "⚠️  DESTROYING ALL REMAINING CLOUDPULSE RESOURCES..."
           terraform destroy -auto-approve
           echo "✅ All resources destroyed successfully."
         working-directory: environments/dev
