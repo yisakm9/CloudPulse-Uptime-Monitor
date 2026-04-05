@@ -180,10 +180,55 @@ resource "google_monitoring_alert_policy" "uptime_check_failure" {
   }
 }
 
+# ─── Custom Metric Descriptor: Endpoint Down ─────────────────
+# Pre-create the metric so the alert policy can reference it
+# even before the worker writes the first data point.
+
+resource "google_monitoring_metric_descriptor" "endpoint_down" {
+  project      = var.project_id
+  description  = "Fires when CloudPulse detects a monitored endpoint has gone DOWN"
+  display_name = "CloudPulse Endpoint Down"
+  type         = "custom.googleapis.com/cloudpulse/endpoint_down"
+  metric_kind  = "GAUGE"
+  value_type   = "INT64"
+
+  labels {
+    key         = "endpoint_name"
+    value_type  = "STRING"
+    description = "Name of the monitored endpoint"
+  }
+
+  labels {
+    key         = "endpoint_url"
+    value_type  = "STRING"
+    description = "URL of the monitored endpoint"
+  }
+}
+
+resource "google_monitoring_metric_descriptor" "endpoint_recovered" {
+  project      = var.project_id
+  description  = "Fires when CloudPulse detects a monitored endpoint has RECOVERED"
+  display_name = "CloudPulse Endpoint Recovered"
+  type         = "custom.googleapis.com/cloudpulse/endpoint_recovered"
+  metric_kind  = "GAUGE"
+  value_type   = "INT64"
+
+  labels {
+    key         = "endpoint_name"
+    value_type  = "STRING"
+    description = "Name of the monitored endpoint"
+  }
+
+  labels {
+    key         = "endpoint_url"
+    value_type  = "STRING"
+    description = "URL of the monitored endpoint"
+  }
+}
+
 # ─── Alert: Monitored Endpoint Down ──────────────────────────
 # Fires when the CloudPulse worker detects that a monitored
-# endpoint has transitioned from UP → DOWN. This sends a
-# custom metric which triggers this alert → email notification.
+# endpoint has transitioned from UP → DOWN.
 
 resource "google_monitoring_alert_policy" "endpoint_down" {
   display_name = "${var.name_prefix}-endpoint-down"
@@ -213,4 +258,6 @@ resource "google_monitoring_alert_policy" "endpoint_down" {
   alert_strategy {
     auto_close = "1800s"
   }
+
+  depends_on = [google_monitoring_metric_descriptor.endpoint_down]
 }
