@@ -120,8 +120,17 @@ async def run_checks():
             )
             db.add(health_check)
 
-            # Detect UP→DOWN transition
-            if previous_check and previous_check.is_healthy and not result.is_healthy:
+            # Detect DOWN status — alert on:
+            #   1. First check is DOWN (no previous_check)
+            #   2. UP→DOWN transition (was healthy, now unhealthy)
+            is_new_down = (not previous_check and not result.is_healthy)
+            is_transition_down = (
+                previous_check
+                and previous_check.is_healthy
+                and not result.is_healthy
+            )
+
+            if is_new_down or is_transition_down:
                 logger.critical(
                     f"🔴 ENDPOINT DOWN: {endpoint.name} ({endpoint.url}) "
                     f"→ {result.error_message}"
