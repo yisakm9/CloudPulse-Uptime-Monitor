@@ -143,3 +143,39 @@ resource "google_monitoring_alert_policy" "cloud_sql_disk" {
     auto_close = "1800s"
   }
 }
+
+# ─── Alert: Uptime Check Failure (Site Down) ─────────────────
+# This is the most important alert — emails you when the
+# dashboard becomes unreachable via the Load Balancer.
+
+resource "google_monitoring_alert_policy" "uptime_check_failure" {
+  display_name = "${var.name_prefix}-site-down"
+  project      = var.project_id
+  combiner     = "OR"
+
+  notification_channels = [
+    google_monitoring_notification_channel.email.name
+  ]
+
+  conditions {
+    display_name = "Uptime Check Failure - Site Unreachable"
+
+    condition_threshold {
+      filter          = "resource.type = \"uptime_url\" AND metric.type = \"monitoring.googleapis.com/uptime_check/check_passed\" AND metric.labels.check_id = \"${google_monitoring_uptime_check_config.lb_health.uptime_check_id}\""
+      comparison      = "COMPARISON_GT"
+      threshold_value = 1
+      duration        = "300s"
+
+      aggregations {
+        alignment_period     = "300s"
+        per_series_aligner   = "ALIGN_NEXT_OLDER"
+        cross_series_reducer = "REDUCE_COUNT_FALSE"
+        group_by_fields      = ["resource.label.project_id"]
+      }
+    }
+  }
+
+  alert_strategy {
+    auto_close = "1800s"
+  }
+}
