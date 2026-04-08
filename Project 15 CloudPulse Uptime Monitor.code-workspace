@@ -2,6 +2,15 @@
 	"folders": [
 		{
 			"path": "."
+		},
+		{
+			"path": "../Project 12 Cloud Cost Calculator"
+		},
+		{
+			"path": "../Project 13 Automatic Backup System"
+		},
+		{
+			"path": "../Project 4 The Meeting Analyst"
 		}
 	],
 	"settings": {}

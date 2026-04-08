@@ -1,9 +1,9 @@
-# ──────────────────────────────────────────────────────────────
+
 # CloudPulse — Destroy Infrastructure Pipeline
-# ──────────────────────────────────────────────────────────────
-# Trigger: Manual only (workflow_dispatch)
+
+
 # Safety: Requires typing "destroy all resources" to confirm
-# ──────────────────────────────────────────────────────────────
+
 
 name: Destroy CloudPulse - Dev
 

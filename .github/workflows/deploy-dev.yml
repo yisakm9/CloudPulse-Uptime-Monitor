@@ -1,13 +1,12 @@
-# ──────────────────────────────────────────────────────────────
+
 # CloudPulse — CI/CD Deployment Pipeline
-# ──────────────────────────────────────────────────────────────
-# Trigger: Push to main branch or manual dispatch
+
 # Pipeline (4 stages — solves Artifact Registry chicken-and-egg):
 #   1. Validate  — Lint, security scan, unit tests
 #   2. Infra     — Terraform creates AR, VPC, SQL, IAM, etc.
 #   3. Build     — Docker build & push (AR now exists)
 #   4. Deploy    — Terraform deploys Cloud Run, LB, monitoring
-# ──────────────────────────────────────────────────────────────
+
 
 name: Deploy CloudPulse - Dev
 
@@ -32,9 +31,9 @@ env:
   WIF_SERVICE_ACCOUNT: 'cloudpulse-dev-github-sa@cloudpulse-uptime-dev.iam.gserviceaccount.com'
 
 jobs:
-  # ────────────────────────────────────────────────────────────
+ 
   # Stage 1: Validate — Lint, Security Scan, Test
-  # ────────────────────────────────────────────────────────────
+  
   validate:
     name: "1 · Validate & Scan"
     runs-on: ubuntu-latest
@@ -80,11 +79,11 @@ jobs:
         run: python -m pytest test/ -v --tb=short
         continue-on-error: true
 
-  # ────────────────────────────────────────────────────────────
+ 
   # Stage 2: Infrastructure — Create AR, VPC, SQL, IAM, Secrets
-  #   Runs Terraform for everything EXCEPT Cloud Run, LB, and
+
   #   Monitoring (which depend on the Docker image existing).
-  # ────────────────────────────────────────────────────────────
+  
   infrastructure:
     name: "2 · Provision Infrastructure"
     needs: validate
@@ -131,10 +130,10 @@ jobs:
             -target=module.iam
         working-directory: environments/dev
 
-  # ────────────────────────────────────────────────────────────
+
   # Stage 3: Build — Docker Build & Push to Artifact Registry
-  #   AR now exists from Stage 2, so the push will succeed.
-  # ────────────────────────────────────────────────────────────
+  
+
   build:
     name: "3 · Build & Push Docker Image"
     needs: infrastructure
@@ -182,11 +181,11 @@ jobs:
           docker push ${{ steps.meta.outputs.tag }}
           docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:latest
 
-  # ────────────────────────────────────────────────────────────
+  
   # Stage 4: Deploy — Cloud Run, Load Balancer, Monitoring
-  #   Now that the Docker image exists in AR, Terraform can
-  #   deploy Cloud Run services referencing that image.
-  # ────────────────────────────────────────────────────────────
+ 
+  
+ 
   deploy:
     name: "4 · Deploy Services"
     needs: build
