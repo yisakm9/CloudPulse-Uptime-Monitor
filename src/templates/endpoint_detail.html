@@ -95,6 +95,12 @@
 {% block scripts %}
 <script>
     const ctx = document.getElementById('responseChart').getContext('2d');
+
+    // Create gradient fill
+    const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+    gradient.addColorStop(0, 'rgba(99, 102, 241, 0.2)');
+    gradient.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
+
     new Chart(ctx, {
         type: 'line',
         data: {
@@ -102,33 +108,56 @@
             datasets: [{
                 label: 'Response Time (ms)',
                 data: {{ chart_data | tojson }},
-                borderColor: '#6366f1',
-                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                borderColor: '#818cf8',
+                backgroundColor: gradient,
                 borderWidth: 2,
                 fill: true,
-                tension: 0.3,
-                pointRadius: 2,
-                pointHoverRadius: 5,
+                tension: 0.4,
+                pointRadius: 0,
+                pointHoverRadius: 6,
+                pointHoverBackgroundColor: '#818cf8',
+                pointHoverBorderColor: '#fff',
+                pointHoverBorderWidth: 2,
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index',
+            },
             plugins: {
                 legend: {
-                    labels: { color: '#94a3b8', font: { family: 'Inter' } }
+                    labels: {
+                        color: '#94a3b8',
+                        font: { family: 'Inter', size: 12 },
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                    titleColor: '#f1f5f9',
+                    bodyColor: '#94a3b8',
+                    borderColor: 'rgba(99, 102, 241, 0.3)',
+                    borderWidth: 1,
+                    cornerRadius: 10,
+                    padding: 12,
+                    titleFont: { family: 'Inter', weight: '600' },
+                    bodyFont: { family: 'JetBrains Mono', size: 12 },
                 }
             },
             scales: {
                 x: {
-                    ticks: { color: '#64748b', maxTicksLimit: 12, font: { family: 'Inter' } },
-                    grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                    ticks: { color: '#64748b', maxTicksLimit: 10, font: { family: 'Inter', size: 11 } },
+                    grid: { color: 'rgba(148, 163, 184, 0.06)', drawBorder: false }
                 },
                 y: {
-                    ticks: { color: '#64748b', font: { family: 'Inter' } },
-                    grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                    ticks: { color: '#64748b', font: { family: 'Inter', size: 11 } },
+                    grid: { color: 'rgba(148, 163, 184, 0.06)', drawBorder: false },
                     beginAtZero: true,
-                    title: { display: true, text: 'ms', color: '#94a3b8' }
+                    title: { display: true, text: 'ms', color: '#64748b', font: { family: 'Inter', size: 11 } }
                 }
             }
         }

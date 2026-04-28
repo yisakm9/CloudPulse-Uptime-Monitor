@@ -122,6 +122,11 @@
     // ─── Add Endpoint ─────────────────────────────────────
     document.getElementById('addEndpointForm').addEventListener('submit', async (e) => {
         e.preventDefault();
+        const btn = e.target.querySelector('.btn-primary');
+        const originalText = btn.textContent;
+        btn.textContent = 'Adding...';
+        btn.disabled = true;
+
         const name = document.getElementById('endpointName').value;
         const url = document.getElementById('endpointUrl').value;
         const interval = parseInt(document.getElementById('endpointInterval').value);
@@ -138,9 +143,13 @@
             } else {
                 const error = await response.json();
                 alert('Error: ' + JSON.stringify(error.detail));
+                btn.textContent = originalText;
+                btn.disabled = false;
             }
         } catch (err) {
             alert('Failed to add endpoint: ' + err.message);
+            btn.textContent = originalText;
+            btn.disabled = false;
         }
     });
 
