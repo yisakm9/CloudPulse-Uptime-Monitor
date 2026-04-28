@@ -4,6 +4,8 @@
 
 > The entire infrastructure is defined using **Terraform** (12 modular modules) and deployed via a professional **CI/CD pipeline** with GitHub Actions and **Workload Identity Federation** (keyless authentication).
 
+![CloudPulse Dashboard](docs/dashboard-screenshot.png)
+
 ---
 
 ## Architecture Diagram
